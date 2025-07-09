@@ -13,8 +13,9 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	if err := database.ConnectDatabase(cfg.Database); err != nil {
+	dbPool, err := database.ConnectDatabase(cfg.Database)
+	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer database.CloseDatabase()
+	defer dbPool.Close()
 }
