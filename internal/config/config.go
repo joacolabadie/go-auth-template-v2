@@ -16,8 +16,15 @@ type DatabaseConfig struct {
 	MaxConnLifetime  time.Duration
 }
 
+type JWTConfig struct {
+	Secret          string
+	AccessTokenTTL  time.Duration
+	RefreshTokenTTL time.Duration
+}
+
 type AppConfig struct {
 	Database DatabaseConfig
+	JWT      JWTConfig
 }
 
 func loadEnv() error {
@@ -26,7 +33,7 @@ func loadEnv() error {
 		return fmt.Errorf("error loading .env file: %w", err)
 	}
 
-	requiredVars := []string{"DATABASE_URL"}
+	requiredVars := []string{"DATABASE_URL", "JWT_SECRET"}
 	for _, v := range requiredVars {
 		if os.Getenv(v) == "" {
 			return fmt.Errorf("required environment variable %s is not set", v)
@@ -77,6 +84,12 @@ func LoadConfig() (AppConfig, error) {
 		MaxConns:         getEnvInt32("DB_MAX_CONNS", 10),
 		MinConns:         getEnvInt32("DB_MIN_CONNS", 2),
 		MaxConnLifetime:  getEnvDuration("DB_MAX_CONN_LIFETIME", time.Hour),
+	}
+
+	cfg.JWT = JWTConfig{
+		Secret:          os.Getenv("JWT_SECRET"),
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 30 * 24 * time.Hour,
 	}
 
 	return cfg, nil
