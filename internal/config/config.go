@@ -23,8 +23,9 @@ type JWTConfig struct {
 }
 
 type AppConfig struct {
-	Database DatabaseConfig
-	JWT      JWTConfig
+	Environment string
+	Database    DatabaseConfig
+	JWT         JWTConfig
 }
 
 func loadEnv() error {
@@ -33,7 +34,7 @@ func loadEnv() error {
 		return fmt.Errorf("error loading .env file: %w", err)
 	}
 
-	requiredVars := []string{"DATABASE_URL", "JWT_SECRET"}
+	requiredVars := []string{"ENVIRONMENT", "DATABASE_URL", "JWT_SECRET"}
 	for _, v := range requiredVars {
 		if os.Getenv(v) == "" {
 			return fmt.Errorf("required environment variable %s is not set", v)
@@ -78,6 +79,8 @@ func LoadConfig() (AppConfig, error) {
 	}
 
 	var cfg AppConfig
+
+	cfg.Environment = os.Getenv("ENVIRONMENT")
 
 	cfg.Database = DatabaseConfig{
 		ConnectionString: os.Getenv("DATABASE_URL"),
