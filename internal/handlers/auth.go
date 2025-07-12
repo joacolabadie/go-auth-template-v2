@@ -138,16 +138,17 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	})
 }
 
-type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
 func (h *AuthHandler) RefreshToken(c echo.Context) error {
-	var req RefreshTokenRequest
+	cookie, err := c.Cookie("refresh_token")
+	if err != nil {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Missing refresh_token cookie"})
+	}
+
+	refreshTokenString := cookie.Value
 
 	ctx := c.Request().Context()
 
-	token, err := h.authService.RefreshAccessToken(ctx, req.RefreshToken)
+	token, err := h.authService.RefreshAccessToken(ctx, refreshTokenString)
 	if err != nil {
 		if errors.Is(err, auth.ErrInvalidToken) || errors.Is(err, auth.ErrExpiredToken) {
 			return c.JSON(http.StatusUnauthorized, echo.Map{
