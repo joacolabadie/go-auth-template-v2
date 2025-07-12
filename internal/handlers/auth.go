@@ -46,7 +46,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	user, err := h.authService.Register(ctx, req.Email, req.Password)
+	userID, err := h.authService.Register(ctx, req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, auth.ErrEmailInUse) {
 			return c.JSON(http.StatusConflict, echo.Map{
@@ -62,7 +62,7 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "User registered successfully",
-		"id":      user.ID,
+		"id":      userID,
 	})
 }
 

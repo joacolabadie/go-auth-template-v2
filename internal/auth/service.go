@@ -37,26 +37,26 @@ func NewAuthService(userRepo *models.UserRepository, refreshTokenRepo *models.Re
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, email, password string) (*models.User, error) {
+func (s *AuthService) Register(ctx context.Context, email, password string) (uuid.UUID, error) {
 	_, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err == nil {
-		return nil, ErrEmailInUse
+		return uuid.Nil, ErrEmailInUse
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
+		return uuid.Nil, err
 	}
 
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 
-	user, err := s.userRepo.CreateUser(ctx, email, hashedPassword)
+	id, err := s.userRepo.CreateUser(ctx, email, hashedPassword)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 
-	return user, nil
+	return id, nil
 }
 
 func (s *AuthService) Login(ctx context.Context, email, password string, refreshTokenTTL time.Duration) (string, string, error) {
@@ -67,6 +67,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string, refresh
 
 	if !utils.ComparePasswords(user.PasswordHash, password) {
 		return "", "", ErrInvalidCredentials
+	}
+
+	if err := s.userRepo.UpdateLastLogin(ctx, user.ID); err != nil {
+		return "", "", err
 	}
 
 	accessToken, err := s.generateAccessToken(user.ID)

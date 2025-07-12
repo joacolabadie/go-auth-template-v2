@@ -9,6 +9,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
+type ServerConfig struct {
+	Port string
+}
+
 type DatabaseConfig struct {
 	ConnectionString string
 	MaxConns         int32
@@ -24,6 +28,7 @@ type JWTConfig struct {
 
 type AppConfig struct {
 	Environment string
+	Server      ServerConfig
 	Database    DatabaseConfig
 	JWT         JWTConfig
 }
@@ -81,6 +86,15 @@ func LoadConfig() (AppConfig, error) {
 	var cfg AppConfig
 
 	cfg.Environment = os.Getenv("ENVIRONMENT")
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	cfg.Server = ServerConfig{
+		Port: port,
+	}
 
 	cfg.Database = DatabaseConfig{
 		ConnectionString: os.Getenv("DATABASE_URL"),

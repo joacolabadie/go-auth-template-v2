@@ -25,23 +25,26 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash string) (*User, error) {
+func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash string) (uuid.UUID, error) {
 	user := &User{
 		Email:        email,
 		PasswordHash: passwordHash,
 	}
 
+	var id uuid.UUID
+
 	q := `
 		INSERT INTO users (email, password_hash)
 		VALUES ($1, $2)
+		RETURNING id
 	`
 
-	_, err := r.db.Exec(ctx, q, user.Email, user.PasswordHash)
+	err := r.db.QueryRow(ctx, q, user.Email, user.PasswordHash).Scan(&id)
 	if err != nil {
-		return nil, err
+		return uuid.Nil, err
 	}
 
-	return user, nil
+	return id, nil
 }
 
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
@@ -100,14 +103,14 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, 
 	return &user, nil
 }
 
-func (r *UserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID, loginTime time.Time) error {
+func (r *UserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	q := `
 		UPDATE users
 		SET last_login = $1
 		WHERE id = $2
 	`
 
-	_, err := r.db.Exec(ctx, q, loginTime, id)
+	_, err := r.db.Exec(ctx, q, time.Now(), id)
 
 	return err
 }
