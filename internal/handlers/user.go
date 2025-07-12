@@ -1,0 +1,51 @@
+package handlers
+
+import (
+	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/joacolabadie/go-auth-template-v2/internal/models"
+	"github.com/labstack/echo/v4"
+)
+
+type UserHandler struct {
+	userRepo *models.UserRepository
+}
+
+func NewUserHandler(userRepo *models.UserRepository) *UserHandler {
+	return &UserHandler{
+		userRepo: userRepo,
+	}
+}
+
+type UserResponse struct {
+	ID        string     `json:"id"`
+	CreatedAt time.Time  `json:"created_at"`
+	Email     string     `json:"email"`
+	LastLogin *time.Time `json:"last_login"`
+}
+
+func (h *UserHandler) Profile(c echo.Context) error {
+	userID, ok := c.Get("userID").(uuid.UUID)
+	if !ok {
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	user, err := h.userRepo.GetUserByID(c.Request().Context(), userID)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, echo.Map{
+			"error":   "Failed to retrieve user profile",
+			"details": err.Error(),
+		})
+	}
+
+	response := UserResponse{
+		ID:        user.ID.String(),
+		CreatedAt: user.CreatedAt,
+		Email:     user.Email,
+		LastLogin: user.LastLogin,
+	}
+
+	return c.JSON(http.StatusOK, response)
+}
