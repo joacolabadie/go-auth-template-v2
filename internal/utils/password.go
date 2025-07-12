@@ -1,12 +1,11 @@
 package utils
 
 import (
-	"github.com/joacolabadie/go-auth-template-v2/internal/constants"
 	"golang.org/x/crypto/bcrypt"
 )
 
 func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), constants.BcryptCost)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	if err != nil {
 		return "", err
 	}

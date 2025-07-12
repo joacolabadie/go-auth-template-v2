@@ -20,16 +20,20 @@ var (
 )
 
 type AuthService struct {
-	userRepo       *models.UserRepository
-	jwtSecret      []byte
-	accessTokenTTL time.Duration
+	userRepo         *models.UserRepository
+	refreshTokenRepo *models.RefreshTokenRepository
+	jwtSecret        []byte
+	accessTokenTTL   time.Duration
+	refreshTokenTTL  time.Duration
 }
 
-func NewAuthService(userRepo *models.UserRepository, jwtSecret string, accessTokenTTL time.Duration) *AuthService {
+func NewAuthService(userRepo *models.UserRepository, refreshTokenRepo *models.RefreshTokenRepository, jwtSecret string, accessTokenTTL time.Duration, refreshTokenTTL time.Duration) *AuthService {
 	return &AuthService{
-		userRepo:       userRepo,
-		jwtSecret:      []byte(jwtSecret),
-		accessTokenTTL: accessTokenTTL,
+		userRepo:         userRepo,
+		refreshTokenRepo: refreshTokenRepo,
+		jwtSecret:        []byte(jwtSecret),
+		accessTokenTTL:   accessTokenTTL,
+		refreshTokenTTL:  refreshTokenTTL,
 	}
 }
 
@@ -55,22 +59,27 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (*mo
 	return user, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, email, password string) (string, error) {
+func (s *AuthService) Login(ctx context.Context, email, password string, refreshTokenTTL time.Duration) (string, string, error) {
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
-		return "", ErrInvalidCredentials
+		return "", "", ErrInvalidCredentials
 	}
 
 	if !utils.ComparePasswords(user.PasswordHash, password) {
-		return "", ErrInvalidCredentials
+		return "", "", ErrInvalidCredentials
 	}
 
-	token, err := s.generateAccessToken(user.ID)
+	accessToken, err := s.generateAccessToken(user.ID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return token, nil
+	refreshToken, err := s.refreshTokenRepo.CreateRefreshToken(ctx, user.ID, refreshTokenTTL)
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, refreshToken.Token, nil
 }
 
 func (s *AuthService) generateAccessToken(id uuid.UUID) (string, error) {
@@ -112,4 +121,39 @@ func (s *AuthService) ValidateToken(tokenString string) (jwt.MapClaims, error) {
 	}
 
 	return nil, ErrInvalidToken
+}
+
+func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenString string) (string, error) {
+	token, err := s.refreshTokenRepo.GetRefreshToken(ctx, refreshTokenString)
+	if err != nil {
+		return "", ErrInvalidToken
+	}
+
+	if token.Revoked {
+		return "", ErrInvalidToken
+	}
+
+	if time.Now().After(token.ExpiresAt) {
+		return "", ErrExpiredToken
+	}
+
+	user, err := s.userRepo.GetUserByID(ctx, token.UserID)
+	if err != nil {
+		return "", err
+	}
+
+	accessToken, err := s.generateAccessToken(user.ID)
+	if err != nil {
+		return "", err
+	}
+
+	return accessToken, nil
+}
+
+func (s *AuthService) AccessTokenTTL() time.Duration {
+	return s.accessTokenTTL
+}
+
+func (s *AuthService) RefreshTokenTTL() time.Duration {
+	return s.refreshTokenTTL
 }
