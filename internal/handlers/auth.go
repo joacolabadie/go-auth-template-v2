@@ -181,3 +181,23 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 		"message": "Access token refreshed successfully",
 	})
 }
+
+func (h *AuthHandler) Logout(c echo.Context) error {
+	refreshTokenCookie, err := c.Cookie("refresh_token")
+	if err != nil {
+		auth.ClearCookies(c, h.environment)
+
+		return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Logged out successfully"})
+	}
+
+	refreshToken := refreshTokenCookie.Value
+
+	ctx := c.Request().Context()
+
+	_ = h.authService.Logout(ctx, refreshToken)
+
+	auth.ClearCookies(c, h.environment)
+
+	return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Logged out successfully"})
+
+}

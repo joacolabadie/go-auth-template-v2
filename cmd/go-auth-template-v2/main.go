@@ -52,6 +52,7 @@ func main() {
 
 	// Protected routes
 	e.GET("/api/user/profile", userHandler.Profile, mw.AuthMiddleware(authService))
+	e.POST("/api/auth/logout", authHandler.Logout, mw.AuthMiddleware(authService))
 
 	log.Printf("Starting server on port %s...", cfg.Server.Port)
 

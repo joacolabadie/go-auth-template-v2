@@ -86,6 +86,10 @@ func (s *AuthService) Login(ctx context.Context, email, password string, refresh
 	return accessToken, refreshToken.Token, nil
 }
 
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+	return s.refreshTokenRepo.RevokeRefreshToken(ctx, refreshToken)
+}
+
 func (s *AuthService) generateAccessToken(id uuid.UUID) (string, error) {
 	expirationTime := time.Now().Add(s.accessTokenTTL)
 
