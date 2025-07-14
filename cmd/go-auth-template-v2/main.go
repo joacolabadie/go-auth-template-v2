@@ -7,8 +7,8 @@ import (
 	"github.com/joacolabadie/go-auth-template-v2/internal/config"
 	"github.com/joacolabadie/go-auth-template-v2/internal/database"
 	"github.com/joacolabadie/go-auth-template-v2/internal/handlers"
-	mw "github.com/joacolabadie/go-auth-template-v2/internal/middleware"
 	"github.com/joacolabadie/go-auth-template-v2/internal/models"
+	"github.com/joacolabadie/go-auth-template-v2/internal/routes"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
@@ -45,14 +45,7 @@ func main() {
 	authHandler := handlers.NewAuthHandler(authService, cfg.Environment)
 	userHandler := handlers.NewUserHandler(userRepo)
 
-	// Public routes
-	e.POST("/api/auth/register", authHandler.Register)
-	e.POST("/api/auth/login", authHandler.Login)
-	e.POST("/api/auth/refresh", authHandler.RefreshToken)
-
-	// Protected routes
-	e.GET("/api/user/profile", userHandler.Profile, mw.AuthMiddleware(authService))
-	e.POST("/api/auth/logout", authHandler.Logout, mw.AuthMiddleware(authService))
+	routes.RegisterRoutes(e, authService, authHandler, userHandler)
 
 	log.Printf("Starting server on port %s...", cfg.Server.Port)
 
