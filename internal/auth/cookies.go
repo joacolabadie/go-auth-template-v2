@@ -7,7 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-func ClearCookies(c echo.Context, environment string) {
+func ClearAuthCookies(c echo.Context, environment string) {
 	isProd := environment == "production"
 
 	accessTokenCookie := &http.Cookie{

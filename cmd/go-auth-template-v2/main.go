@@ -6,9 +6,9 @@ import (
 	"github.com/joacolabadie/go-auth-template-v2/internal/auth"
 	"github.com/joacolabadie/go-auth-template-v2/internal/config"
 	"github.com/joacolabadie/go-auth-template-v2/internal/database"
-	"github.com/joacolabadie/go-auth-template-v2/internal/handlers"
-	"github.com/joacolabadie/go-auth-template-v2/internal/models"
+	refreshtoken "github.com/joacolabadie/go-auth-template-v2/internal/refresh_token"
 	"github.com/joacolabadie/go-auth-template-v2/internal/routes"
+	"github.com/joacolabadie/go-auth-template-v2/internal/user"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"golang.org/x/time/rate"
@@ -29,22 +29,27 @@ func main() {
 	e := echo.New()
 
 	// CORS middleware configuration
-	e.Use(middleware.CORS())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{"*"},
+		AllowHeaders: []string{"*"},
+	}))
 
 	// Rate limiting middleware configuration
 	e.Use(middleware.RateLimiter(middleware.NewRateLimiterMemoryStore(rate.Limit(20))))
 
 	// Create repositories
-	userRepo := models.NewUserRepository(dbPool)
-	refreshTokenRepo := models.NewRefreshTokenRepository(dbPool)
+	userRepo := user.NewPostgresUserRepository(dbPool)
+	refreshTokenRepo := refreshtoken.NewPostgresRefreshTokenRepository(dbPool)
 
 	// Create services
-	authService := auth.NewAuthService(userRepo, refreshTokenRepo, cfg.JWT.Secret, cfg.JWT.AccessTokenTTL, cfg.JWT.RefreshTokenTTL)
+	authService := auth.NewService(userRepo, refreshTokenRepo, cfg.JWT.Secret, cfg.JWT.AccessTokenTTL, cfg.JWT.RefreshTokenTTL)
 
 	// Create handlers
-	authHandler := handlers.NewAuthHandler(authService, cfg.Environment)
-	userHandler := handlers.NewUserHandler(userRepo)
+	authHandler := auth.NewHandler(authService, cfg.Environment)
+	userHandler := user.NewHandler(userRepo)
 
+	// Register routes
 	routes.RegisterRoutes(e, authService, authHandler, userHandler)
 
 	log.Printf("Starting server on port %s...", cfg.Server.Port)

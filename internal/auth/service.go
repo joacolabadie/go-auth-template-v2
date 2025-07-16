@@ -8,27 +8,21 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/joacolabadie/go-auth-template-v2/internal/models"
+	refreshtoken "github.com/joacolabadie/go-auth-template-v2/internal/refresh_token"
+	"github.com/joacolabadie/go-auth-template-v2/internal/user"
 	"github.com/joacolabadie/go-auth-template-v2/internal/utils"
 )
 
-var (
-	ErrEmailInUse         = errors.New("email already in use")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInvalidToken       = errors.New("invalid token")
-	ErrExpiredToken       = errors.New("token has expired")
-)
-
-type AuthService struct {
-	userRepo         *models.UserRepository
-	refreshTokenRepo *models.RefreshTokenRepository
+type Service struct {
+	userRepo         user.Repository
+	refreshTokenRepo refreshtoken.Repository
 	jwtSecret        []byte
 	accessTokenTTL   time.Duration
 	refreshTokenTTL  time.Duration
 }
 
-func NewAuthService(userRepo *models.UserRepository, refreshTokenRepo *models.RefreshTokenRepository, jwtSecret string, accessTokenTTL time.Duration, refreshTokenTTL time.Duration) *AuthService {
-	return &AuthService{
+func NewService(userRepo user.Repository, refreshTokenRepo refreshtoken.Repository, jwtSecret string, accessTokenTTL time.Duration, refreshTokenTTL time.Duration) *Service {
+	return &Service{
 		userRepo:         userRepo,
 		refreshTokenRepo: refreshTokenRepo,
 		jwtSecret:        []byte(jwtSecret),
@@ -37,7 +31,7 @@ func NewAuthService(userRepo *models.UserRepository, refreshTokenRepo *models.Re
 	}
 }
 
-func (s *AuthService) Register(ctx context.Context, email, password string) (uuid.UUID, error) {
+func (s *Service) Register(ctx context.Context, email, password string) (uuid.UUID, error) {
 	_, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err == nil {
 		return uuid.Nil, ErrEmailInUse
@@ -59,7 +53,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (uui
 	return id, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, email, password string, refreshTokenTTL time.Duration) (string, string, error) {
+func (s *Service) Login(ctx context.Context, email, password string, refreshTokenTTL time.Duration) (string, string, error) {
 	user, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err != nil {
 		return "", "", ErrInvalidCredentials
@@ -86,11 +80,11 @@ func (s *AuthService) Login(ctx context.Context, email, password string, refresh
 	return accessToken, refreshToken.Token, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	return s.refreshTokenRepo.RevokeRefreshToken(ctx, refreshToken)
 }
 
-func (s *AuthService) generateAccessToken(id uuid.UUID) (string, error) {
+func (s *Service) generateAccessToken(id uuid.UUID) (string, error) {
 	expirationTime := time.Now().Add(s.accessTokenTTL)
 
 	claims := jwt.MapClaims{
@@ -109,7 +103,7 @@ func (s *AuthService) generateAccessToken(id uuid.UUID) (string, error) {
 	return tokenString, nil
 }
 
-func (s *AuthService) ValidateToken(tokenString string) (jwt.MapClaims, error) {
+func (s *Service) ValidateToken(tokenString string) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, ErrInvalidToken
@@ -131,7 +125,7 @@ func (s *AuthService) ValidateToken(tokenString string) (jwt.MapClaims, error) {
 	return nil, ErrInvalidToken
 }
 
-func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenString string) (string, error) {
+func (s *Service) RefreshAccessToken(ctx context.Context, refreshTokenString string) (string, error) {
 	token, err := s.refreshTokenRepo.GetRefreshToken(ctx, refreshTokenString)
 	if err != nil {
 		return "", ErrInvalidToken
@@ -158,10 +152,10 @@ func (s *AuthService) RefreshAccessToken(ctx context.Context, refreshTokenString
 	return accessToken, nil
 }
 
-func (s *AuthService) AccessTokenTTL() time.Duration {
+func (s *Service) AccessTokenTTL() time.Duration {
 	return s.accessTokenTTL
 }
 
-func (s *AuthService) RefreshTokenTTL() time.Duration {
+func (s *Service) RefreshTokenTTL() time.Duration {
 	return s.refreshTokenTTL
 }

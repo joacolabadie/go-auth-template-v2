@@ -1,4 +1,4 @@
-package handlers
+package auth
 
 import (
 	"errors"
@@ -6,19 +6,18 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/joacolabadie/go-auth-template-v2/internal/auth"
 	"github.com/joacolabadie/go-auth-template-v2/internal/utils"
 	"github.com/labstack/echo/v4"
 )
 
-type AuthHandler struct {
-	authService *auth.AuthService
+type Handler struct {
+	service     *Service
 	environment string
 }
 
-func NewAuthHandler(authService *auth.AuthService, environment string) *AuthHandler {
-	return &AuthHandler{
-		authService: authService,
+func NewHandler(service *Service, environment string) *Handler {
+	return &Handler{
+		service:     service,
 		environment: environment,
 	}
 }
@@ -28,7 +27,7 @@ type RegisterRequest struct {
 	Password string `json:"password" validate:"required,gte=6"`
 }
 
-func (h *AuthHandler) Register(c echo.Context) error {
+func (h *Handler) Register(c echo.Context) error {
 	var req RegisterRequest
 
 	if err := c.Bind(&req); err != nil {
@@ -46,9 +45,9 @@ func (h *AuthHandler) Register(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	userID, err := h.authService.Register(ctx, req.Email, req.Password)
+	userID, err := h.service.Register(ctx, req.Email, req.Password)
 	if err != nil {
-		if errors.Is(err, auth.ErrEmailInUse) {
+		if errors.Is(err, ErrEmailInUse) {
 			return c.JSON(http.StatusConflict, echo.Map{
 				"error": "A user with this email already exists",
 			})
@@ -71,7 +70,7 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required,gte=6"`
 }
 
-func (h *AuthHandler) Login(c echo.Context) error {
+func (h *Handler) Login(c echo.Context) error {
 	var req LoginRequest
 
 	if err := c.Bind(&req); err != nil {
@@ -89,11 +88,11 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	refreshTokenTTL := h.authService.RefreshTokenTTL()
+	refreshTokenTTL := h.service.RefreshTokenTTL()
 
-	accessToken, refreshToken, err := h.authService.Login(ctx, req.Email, req.Password, refreshTokenTTL)
+	accessToken, refreshToken, err := h.service.Login(ctx, req.Email, req.Password, refreshTokenTTL)
 	if err != nil {
-		if errors.Is(err, auth.ErrInvalidCredentials) {
+		if errors.Is(err, ErrInvalidCredentials) {
 			return c.JSON(http.StatusUnauthorized, echo.Map{
 				"error": "Invalid credentials",
 			})
@@ -107,7 +106,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 
 	isProd := h.environment == "production"
 
-	ttl := h.authService.AccessTokenTTL()
+	ttl := h.service.AccessTokenTTL()
 
 	accessTokenCookie := &http.Cookie{
 		Name:     "access_token",
@@ -138,7 +137,7 @@ func (h *AuthHandler) Login(c echo.Context) error {
 	})
 }
 
-func (h *AuthHandler) RefreshToken(c echo.Context) error {
+func (h *Handler) RefreshToken(c echo.Context) error {
 	cookie, err := c.Cookie("refresh_token")
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Missing refresh_token cookie"})
@@ -148,9 +147,9 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	token, err := h.authService.RefreshAccessToken(ctx, refreshTokenString)
+	token, err := h.service.RefreshAccessToken(ctx, refreshTokenString)
 	if err != nil {
-		if errors.Is(err, auth.ErrInvalidToken) || errors.Is(err, auth.ErrExpiredToken) {
+		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrExpiredToken) {
 			return c.JSON(http.StatusUnauthorized, echo.Map{
 				"error": "Invalid or expired refresh token",
 			})
@@ -163,7 +162,7 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 
 	isProd := h.environment == "production"
 
-	ttl := h.authService.AccessTokenTTL()
+	ttl := h.service.AccessTokenTTL()
 
 	accessTokenCookie := &http.Cookie{
 		Name:     "access_token",
@@ -182,10 +181,10 @@ func (h *AuthHandler) RefreshToken(c echo.Context) error {
 	})
 }
 
-func (h *AuthHandler) Logout(c echo.Context) error {
+func (h *Handler) Logout(c echo.Context) error {
 	refreshTokenCookie, err := c.Cookie("refresh_token")
 	if err != nil {
-		auth.ClearCookies(c, h.environment)
+		ClearAuthCookies(c, h.environment)
 
 		return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Logged out successfully"})
 	}
@@ -194,9 +193,9 @@ func (h *AuthHandler) Logout(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	_ = h.authService.Logout(ctx, refreshToken)
+	_ = h.service.Logout(ctx, refreshToken)
 
-	auth.ClearCookies(c, h.environment)
+	ClearAuthCookies(c, h.environment)
 
 	return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Logged out successfully"})
 

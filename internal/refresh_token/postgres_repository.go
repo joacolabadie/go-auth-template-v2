@@ -1,4 +1,4 @@
-package models
+package refreshtoken
 
 import (
 	"context"
@@ -8,24 +8,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type RefreshToken struct {
-	ID        uuid.UUID
-	CreatedAt time.Time
-	UserID    uuid.UUID
-	Token     string
-	ExpiresAt time.Time
-	Revoked   bool
-}
-
-type RefreshTokenRepository struct {
+type PostgresRefreshTokenRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewRefreshTokenRepository(db *pgxpool.Pool) *RefreshTokenRepository {
-	return &RefreshTokenRepository{db: db}
+func NewPostgresRefreshTokenRepository(db *pgxpool.Pool) *PostgresRefreshTokenRepository {
+	return &PostgresRefreshTokenRepository{db: db}
 }
 
-func (r *RefreshTokenRepository) CreateRefreshToken(ctx context.Context, userID uuid.UUID, ttl time.Duration) (*RefreshToken, error) {
+func (r *PostgresRefreshTokenRepository) CreateRefreshToken(ctx context.Context, userID uuid.UUID, ttl time.Duration) (*RefreshToken, error) {
 	token := &RefreshToken{
 		UserID:    userID,
 		Token:     uuid.New().String(),
@@ -46,7 +37,7 @@ func (r *RefreshTokenRepository) CreateRefreshToken(ctx context.Context, userID 
 	return token, nil
 }
 
-func (r *RefreshTokenRepository) GetRefreshToken(ctx context.Context, tokenString string) (*RefreshToken, error) {
+func (r *PostgresRefreshTokenRepository) GetRefreshToken(ctx context.Context, tokenString string) (*RefreshToken, error) {
 	var token RefreshToken
 
 	q := `
@@ -70,7 +61,7 @@ func (r *RefreshTokenRepository) GetRefreshToken(ctx context.Context, tokenStrin
 	return &token, nil
 }
 
-func (r *RefreshTokenRepository) RevokeRefreshToken(ctx context.Context, tokenString string) error {
+func (r *PostgresRefreshTokenRepository) RevokeRefreshToken(ctx context.Context, tokenString string) error {
 	q := `
 		UPDATE refresh_tokens
 		SET revoked = true

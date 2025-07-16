@@ -1,38 +1,37 @@
-package handlers
+package user
 
 import (
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/joacolabadie/go-auth-template-v2/internal/models"
 	"github.com/labstack/echo/v4"
 )
 
-type UserHandler struct {
-	userRepo *models.UserRepository
+type Handler struct {
+	repo Repository
 }
 
-func NewUserHandler(userRepo *models.UserRepository) *UserHandler {
-	return &UserHandler{
-		userRepo: userRepo,
+func NewHandler(repo Repository) *Handler {
+	return &Handler{
+		repo: repo,
 	}
 }
 
-type UserResponse struct {
+type ProfileResponse struct {
 	ID        string     `json:"id"`
 	CreatedAt time.Time  `json:"created_at"`
 	Email     string     `json:"email"`
 	LastLogin *time.Time `json:"last_login"`
 }
 
-func (h *UserHandler) Profile(c echo.Context) error {
+func (h *Handler) Profile(c echo.Context) error {
 	userID, ok := c.Get("userID").(uuid.UUID)
 	if !ok {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
-	user, err := h.userRepo.GetUserByID(c.Request().Context(), userID)
+	user, err := h.repo.GetUserByID(c.Request().Context(), userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
 			"error":   "Failed to retrieve user profile",
@@ -40,7 +39,7 @@ func (h *UserHandler) Profile(c echo.Context) error {
 		})
 	}
 
-	response := UserResponse{
+	response := ProfileResponse{
 		ID:        user.ID.String(),
 		CreatedAt: user.CreatedAt,
 		Email:     user.Email,

@@ -1,4 +1,4 @@
-package models
+package user
 
 import (
 	"context"
@@ -9,23 +9,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type User struct {
-	ID           uuid.UUID  `json:"id"`
-	CreatedAt    time.Time  `json:"created_at"`
-	Email        string     `json:"email"`
-	PasswordHash string     `json:"-"`
-	LastLogin    *time.Time `json:"last_login"`
-}
-
-type UserRepository struct {
+type PostgresUserRepository struct {
 	db *pgxpool.Pool
 }
 
-func NewUserRepository(db *pgxpool.Pool) *UserRepository {
-	return &UserRepository{db: db}
+func NewPostgresUserRepository(db *pgxpool.Pool) *PostgresUserRepository {
+	return &PostgresUserRepository{db: db}
 }
 
-func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash string) (uuid.UUID, error) {
+func (r *PostgresUserRepository) CreateUser(ctx context.Context, email, passwordHash string) (uuid.UUID, error) {
 	user := &User{
 		Email:        email,
 		PasswordHash: passwordHash,
@@ -47,7 +39,7 @@ func (r *UserRepository) CreateUser(ctx context.Context, email, passwordHash str
 	return id, nil
 }
 
-func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+func (r *PostgresUserRepository) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	q := `
 		SELECT id, created_at, email, password_hash, last_login
 		FROM users
@@ -75,7 +67,7 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*Use
 	return &user, nil
 }
 
-func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
+func (r *PostgresUserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, error) {
 	q := `
 		SELECT id, created_at, email, password_hash, last_login
 		FROM users
@@ -103,7 +95,7 @@ func (r *UserRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*User, 
 	return &user, nil
 }
 
-func (r *UserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
+func (r *PostgresUserRepository) UpdateLastLogin(ctx context.Context, id uuid.UUID) error {
 	q := `
 		UPDATE users
 		SET last_login = $1
