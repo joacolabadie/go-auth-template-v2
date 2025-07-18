@@ -104,33 +104,9 @@ func (h *Handler) Login(c echo.Context) error {
 		}
 	}
 
-	isProd := h.environment == "production"
+	accessTokenTTL := h.service.AccessTokenTTL()
 
-	ttl := h.service.AccessTokenTTL()
-
-	accessTokenCookie := &http.Cookie{
-		Name:     "access_token",
-		Value:    accessToken,
-		Path:     "/",
-		Expires:  time.Now().Add(ttl),
-		MaxAge:   int(ttl.Seconds()),
-		Secure:   isProd,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	c.SetCookie(accessTokenCookie)
-
-	refreshTokenCookie := &http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshToken,
-		Path:     "/",
-		Expires:  time.Now().Add(refreshTokenTTL),
-		MaxAge:   int(refreshTokenTTL.Seconds()),
-		Secure:   isProd,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	c.SetCookie(refreshTokenCookie)
+	SetAuthCookies(c, h.environment, accessToken, refreshToken, accessTokenTTL, refreshTokenTTL)
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "User logged in successfully",

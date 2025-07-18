@@ -34,3 +34,35 @@ func ClearAuthCookies(c echo.Context, environment string) {
 	}
 	c.SetCookie(refreshTokenCookie)
 }
+
+func SetAuthCookies(c echo.Context, environment string, accessTokenString, refreshTokenString string, accessTokenTTL, refreshTokenTTL time.Duration) {
+	isProd := environment == "production"
+
+	if accessTokenString != "" {
+		accessTokenCookie := &http.Cookie{
+			Name:     "access_token",
+			Value:    accessTokenString,
+			Path:     "/",
+			Expires:  time.Now().Add(accessTokenTTL),
+			MaxAge:   int(accessTokenTTL.Seconds()),
+			Secure:   isProd,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		}
+		c.SetCookie(accessTokenCookie)
+	}
+
+	if refreshTokenString != "" {
+		accessTokenCookie := &http.Cookie{
+			Name:     "access_token",
+			Value:    refreshTokenString,
+			Path:     "/",
+			Expires:  time.Now().Add(refreshTokenTTL),
+			MaxAge:   int(refreshTokenTTL.Seconds()),
+			Secure:   isProd,
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		}
+		c.SetCookie(accessTokenCookie)
+	}
+}
