@@ -22,7 +22,7 @@ type ProfileResponse struct {
 	ID        string     `json:"id"`
 	CreatedAt time.Time  `json:"created_at"`
 	Email     string     `json:"email"`
-	LastLogin *time.Time `json:"last_login"`
+	LastLogin *time.Time `json:"last_login,omitempty"`
 }
 
 func (h *Handler) Profile(c echo.Context) error {
@@ -34,8 +34,7 @@ func (h *Handler) Profile(c echo.Context) error {
 	user, err := h.repo.GetUserByID(c.Request().Context(), userID)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, echo.Map{
-			"error":   "Failed to retrieve user profile",
-			"details": err.Error(),
+			"error": "Failed to retrieve user profile",
 		})
 	}
 
