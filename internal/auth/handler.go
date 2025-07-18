@@ -3,7 +3,6 @@ package auth
 import (
 	"errors"
 	"net/http"
-	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/joacolabadie/go-auth-template-v2/internal/utils"
@@ -53,15 +52,14 @@ func (h *Handler) Register(c echo.Context) error {
 			})
 		} else {
 			return c.JSON(http.StatusInternalServerError, echo.Map{
-				"error":   "Database error",
-				"details": err.Error(),
+				"error": "Internal server error",
 			})
 		}
 	}
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "User registered successfully",
-		"id":      userID,
+		"user_id": userID,
 	})
 }
 
@@ -98,8 +96,7 @@ func (h *Handler) Login(c echo.Context) error {
 			})
 		} else {
 			return c.JSON(http.StatusInternalServerError, echo.Map{
-				"error":   "Database error",
-				"details": err.Error(),
+				"error": "Internal server error",
 			})
 		}
 	}
@@ -123,7 +120,7 @@ func (h *Handler) RefreshToken(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	token, err := h.service.RefreshAccessToken(ctx, refreshTokenString)
+	accessToken, err := h.service.RefreshAccessToken(ctx, refreshTokenString)
 	if err != nil {
 		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrExpiredToken) {
 			return c.JSON(http.StatusUnauthorized, echo.Map{
@@ -136,21 +133,9 @@ func (h *Handler) RefreshToken(c echo.Context) error {
 		}
 	}
 
-	isProd := h.environment == "production"
+	accessTokenTTL := h.service.AccessTokenTTL()
 
-	ttl := h.service.AccessTokenTTL()
-
-	accessTokenCookie := &http.Cookie{
-		Name:     "access_token",
-		Value:    token,
-		Path:     "/",
-		Expires:  time.Now().Add(ttl),
-		MaxAge:   int(ttl.Seconds()),
-		Secure:   isProd,
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	c.SetCookie(accessTokenCookie)
+	SetAuthCookies(c, h.environment, accessToken, "", accessTokenTTL, 0)
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "Access token refreshed successfully",
@@ -158,21 +143,13 @@ func (h *Handler) RefreshToken(c echo.Context) error {
 }
 
 func (h *Handler) Logout(c echo.Context) error {
-	refreshTokenCookie, err := c.Cookie("refresh_token")
-	if err != nil {
-		ClearAuthCookies(c, h.environment)
-
-		return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Logged out successfully"})
-	}
-
-	refreshToken := refreshTokenCookie.Value
-
 	ctx := c.Request().Context()
 
-	_ = h.service.Logout(ctx, refreshToken)
+	if refreshTokenCookie, err := c.Cookie("refresh_token"); err == nil {
+		_ = h.service.Logout(ctx, refreshTokenCookie.Value)
+	}
 
 	ClearAuthCookies(c, h.environment)
 
-	return c.JSON(http.StatusUnauthorized, echo.Map{"message": "Logged out successfully"})
-
+	return c.JSON(http.StatusOK, echo.Map{"message": "User logged out successfully"})
 }
