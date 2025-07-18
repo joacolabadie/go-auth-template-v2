@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joacolabadie/go-auth-template-v2/internal/utils"
 )
 
 type PostgresRefreshTokenRepository struct {
@@ -17,9 +18,12 @@ func NewPostgresRefreshTokenRepository(db *pgxpool.Pool) *PostgresRefreshTokenRe
 }
 
 func (r *PostgresRefreshTokenRepository) CreateRefreshToken(ctx context.Context, userID uuid.UUID, ttl time.Duration) (*RefreshToken, error) {
+	rawToken := uuid.New().String()
+	hashedToken := utils.HashToken(rawToken)
+
 	token := &RefreshToken{
 		UserID:    userID,
-		Token:     uuid.New().String(),
+		Token:     rawToken,
 		ExpiresAt: time.Now().Add(ttl),
 		Revoked:   false,
 	}
@@ -29,7 +33,7 @@ func (r *PostgresRefreshTokenRepository) CreateRefreshToken(ctx context.Context,
 		VALUES ($1, $2, $3, $4)
 	`
 
-	_, err := r.db.Exec(ctx, q, token.UserID, token.Token, token.ExpiresAt, token.Revoked)
+	_, err := r.db.Exec(ctx, q, token.UserID, hashedToken, token.ExpiresAt, token.Revoked)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +41,10 @@ func (r *PostgresRefreshTokenRepository) CreateRefreshToken(ctx context.Context,
 	return token, nil
 }
 
-func (r *PostgresRefreshTokenRepository) GetRefreshToken(ctx context.Context, tokenString string) (*RefreshToken, error) {
+func (r *PostgresRefreshTokenRepository) GetRefreshToken(ctx context.Context, rawToken string) (*RefreshToken, error) {
 	var token RefreshToken
+
+	hashedToken := utils.HashToken(rawToken)
 
 	q := `
 		SELECT id, created_at, user_id, token, expires_at, revoked
@@ -46,7 +52,7 @@ func (r *PostgresRefreshTokenRepository) GetRefreshToken(ctx context.Context, to
 		WHERE token = $1
 	`
 
-	err := r.db.QueryRow(ctx, q, tokenString).Scan(
+	err := r.db.QueryRow(ctx, q, hashedToken).Scan(
 		&token.ID,
 		&token.CreatedAt,
 		&token.UserID,
@@ -58,17 +64,21 @@ func (r *PostgresRefreshTokenRepository) GetRefreshToken(ctx context.Context, to
 		return nil, err
 	}
 
+	token.Token = rawToken
+
 	return &token, nil
 }
 
-func (r *PostgresRefreshTokenRepository) RevokeRefreshToken(ctx context.Context, tokenString string) error {
+func (r *PostgresRefreshTokenRepository) RevokeRefreshToken(ctx context.Context, rawToken string) error {
+	hashedToken := utils.HashToken(rawToken)
+
 	q := `
 		UPDATE refresh_tokens
 		SET revoked = true
 		WHERE token = $1
 	`
 
-	_, err := r.db.Exec(ctx, q, tokenString)
+	_, err := r.db.Exec(ctx, q, hashedToken)
 
 	return err
 }
