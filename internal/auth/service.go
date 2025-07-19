@@ -125,31 +125,41 @@ func (s *Service) ValidateToken(tokenString string) (jwt.MapClaims, error) {
 	return nil, ErrInvalidToken
 }
 
-func (s *Service) RefreshAccessToken(ctx context.Context, refreshTokenString string) (string, error) {
+func (s *Service) RefreshAccessToken(ctx context.Context, refreshTokenString string) (string, string, error) {
 	token, err := s.refreshTokenRepo.GetRefreshToken(ctx, refreshTokenString)
 	if err != nil {
-		return "", ErrInvalidToken
+		return "", "", ErrInvalidToken
 	}
 
 	if token.Revoked {
-		return "", ErrInvalidToken
+		return "", "", ErrInvalidToken
 	}
 
 	if time.Now().After(token.ExpiresAt) {
-		return "", ErrExpiredToken
+		return "", "", ErrExpiredToken
+	}
+
+	err = s.refreshTokenRepo.RevokeRefreshToken(ctx, refreshTokenString)
+	if err != nil {
+		return "", "", err
 	}
 
 	user, err := s.userRepo.GetUserByID(ctx, token.UserID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	accessToken, err := s.generateAccessToken(user.ID)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
-	return accessToken, nil
+	newRefreshToken, err := s.refreshTokenRepo.CreateRefreshToken(ctx, user.ID, s.refreshTokenTTL)
+	if err != nil {
+		return "", "", err
+	}
+
+	return accessToken, newRefreshToken.Token, nil
 }
 
 func (s *Service) AccessTokenTTL() time.Duration {

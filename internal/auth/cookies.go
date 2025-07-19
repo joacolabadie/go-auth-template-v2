@@ -25,7 +25,7 @@ func SetAuthCookies(c echo.Context, environment string, accessTokenString, refre
 	}
 
 	if refreshTokenString != "" {
-		accessTokenCookie := &http.Cookie{
+		refreshTokenCookie := &http.Cookie{
 			Name:     "refresh_token",
 			Value:    refreshTokenString,
 			Path:     "/",
@@ -35,7 +35,7 @@ func SetAuthCookies(c echo.Context, environment string, accessTokenString, refre
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		}
-		c.SetCookie(accessTokenCookie)
+		c.SetCookie(refreshTokenCookie)
 	}
 }
 

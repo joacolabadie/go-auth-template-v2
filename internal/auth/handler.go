@@ -120,7 +120,7 @@ func (h *Handler) RefreshToken(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	accessToken, err := h.service.RefreshAccessToken(ctx, refreshTokenString)
+	accessToken, newRefreshToken, err := h.service.RefreshAccessToken(ctx, refreshTokenString)
 	if err != nil {
 		if errors.Is(err, ErrInvalidToken) || errors.Is(err, ErrExpiredToken) {
 			return c.JSON(http.StatusUnauthorized, echo.Map{
@@ -134,8 +134,9 @@ func (h *Handler) RefreshToken(c echo.Context) error {
 	}
 
 	accessTokenTTL := h.service.AccessTokenTTL()
+	refreshTokenTTL := h.service.RefreshTokenTTL()
 
-	SetAuthCookies(c, h.environment, accessToken, "", accessTokenTTL, 0)
+	SetAuthCookies(c, h.environment, accessToken, newRefreshToken, accessTokenTTL, refreshTokenTTL)
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "Access token refreshed successfully",
