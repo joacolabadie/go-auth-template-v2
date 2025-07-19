@@ -31,26 +31,36 @@ func NewService(userRepo user.Repository, refreshTokenRepo refreshtoken.Reposito
 	}
 }
 
-func (s *Service) Register(ctx context.Context, email, password string) (uuid.UUID, error) {
+func (s *Service) Register(ctx context.Context, email, password string, refreshTokenTTL time.Duration) (uuid.UUID, string, string, error) {
 	_, err := s.userRepo.GetUserByEmail(ctx, email)
 	if err == nil {
-		return uuid.Nil, ErrEmailInUse
+		return uuid.Nil, "", "", ErrEmailInUse
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
-		return uuid.Nil, err
+		return uuid.Nil, "", "", err
 	}
 
 	hashedPassword, err := utils.HashPassword(password)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, "", "", err
 	}
 
 	id, err := s.userRepo.CreateUser(ctx, email, hashedPassword)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, "", "", err
 	}
 
-	return id, nil
+	accessToken, err := s.generateAccessToken(id)
+	if err != nil {
+		return uuid.Nil, "", "", err
+	}
+
+	refreshToken, err := s.refreshTokenRepo.CreateRefreshToken(ctx, id, refreshTokenTTL)
+	if err != nil {
+		return uuid.Nil, "", "", err
+	}
+
+	return id, accessToken, refreshToken.Token, nil
 }
 
 func (s *Service) Login(ctx context.Context, email, password string, refreshTokenTTL time.Duration) (string, string, error) {

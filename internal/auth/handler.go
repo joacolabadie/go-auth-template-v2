@@ -44,7 +44,9 @@ func (h *Handler) Register(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	userID, err := h.service.Register(ctx, req.Email, req.Password)
+	refreshTokenTTL := h.service.RefreshTokenTTL()
+
+	userID, accessToken, refreshToken, err := h.service.Register(ctx, req.Email, req.Password, refreshTokenTTL)
 	if err != nil {
 		if errors.Is(err, ErrEmailInUse) {
 			return c.JSON(http.StatusConflict, echo.Map{
@@ -56,6 +58,10 @@ func (h *Handler) Register(c echo.Context) error {
 			})
 		}
 	}
+
+	accessTokenTTL := h.service.AccessTokenTTL()
+
+	SetAuthCookies(c, h.environment, accessToken, refreshToken, accessTokenTTL, refreshTokenTTL)
 
 	return c.JSON(http.StatusOK, echo.Map{
 		"message": "User registered successfully",
