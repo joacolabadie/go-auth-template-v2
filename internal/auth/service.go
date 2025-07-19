@@ -50,6 +50,10 @@ func (s *Service) Register(ctx context.Context, email, password string, refreshT
 		return uuid.Nil, "", "", err
 	}
 
+	if err := s.userRepo.UpdateLastLogin(ctx, id); err != nil {
+		return uuid.Nil, "", "", err
+	}
+
 	accessToken, err := s.generateAccessToken(id)
 	if err != nil {
 		return uuid.Nil, "", "", err
