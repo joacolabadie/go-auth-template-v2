@@ -1,7 +1,0 @@
-{
-  "github.copilot.chat.commitMessageGeneration.instructions": [
-    {
-      "text": "Generate commit messages using the Conventional Commits format. Start with a lowercase type prefix followed by a colon and a space (e.g., feat:, fix:, refactor:, chore:, docs:, test:, build:, ci:), then write a clear, imperative summary describing what the commit does without ending with a period. Separate multiple logical changes with semicolons within the same summary line."
-    }
-  ]
-}
